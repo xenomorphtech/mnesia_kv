@@ -6,11 +6,11 @@ defmodule MnesiaKV.Bench do
   end
 
   #can lose up to 8ms of data if app gets killed
-  def write_to_file_unsafe(threads \\ 4) do
+  def write_to_file_unsafe(threads \\ 4, file \\ "/tmp/dump") do
     make_ets()
     Enum.each(1..threads, fn(_idx)->
       :erlang.spawn_opt(fn()->
-        {:ok, file} = :file.open("/tmp/dump", [:write, :raw, :binary, {:delayed_write, 524288, 8}])
+        {:ok, file} = :file.open(file, [:write, :raw, :binary, {:delayed_write, 524288, 8}])
         {took, _} = :timer.tc(fn()->
           Enum.each(1..100000, fn(_key) ->
             key = :rand.uniform(10000)

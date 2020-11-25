@@ -5,6 +5,21 @@ OTP23+ only.
 
 Deepmerged key value database (/w diff subscriptions) ontop of ETS with RocksDB for persistence / dataloss protection.
 
+### Deps
+
+```
+For rocker:
+rust, libclang
+
+On ubuntu:
+
+apt install libclang-dev
+
+sed -e 's|/root/.cargo/bin:||g' -i /etc/environment
+sed -e 's|PATH="\(.*\)"|PATH="/root/.cargo/bin:\1"|g' -i /etc/environment
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs/ | sh -s -- -y
+```
+
 ### Philosopy
 
 ETS + RethinkDB + RockDB.
@@ -131,6 +146,37 @@ MnesiaKV.Bench.mnesia(4)
 
 MnesiaKV.Bench.rocksdb(4)
 120k write tps
+
+
+8/16 core i9-9900K CPU @ 3.60GHz
+XFS, PM981 NVME
+
+MnesiaKV.Bench.write_to_file_unsafe(16)
+5m write tps
+MnesiaKV.Bench.write_to_file_unsafe(12)
+5m write tps
+MnesiaKV.Bench.write_to_file_unsafe(8)
+3.8m write tps
+
+MnesiaKV.Bench.mnesia(16)
+640k write tps
+MnesiaKV.Bench.mnesia(12)
+1.02m write tps
+MnesiaKV.Bench.mnesia(8)
+1m write tps
+
+MnesiaKV.Bench.rocksdb(16)
+160k write tps
+MnesiaKV.Bench.rocksdb(12)
+189k write tps
+MnesiaKV.Bench.rocksdb(8)
+228k write tps
+MnesiaKV.Bench.rocksdb(4)
+260k write tps
+MnesiaKV.Bench.rocksdb(1)
+330k write tps
 ```
 
-Based on these benchmarks if losing up to 8ms of data (if app crashes) or more in case of power outage is okay, maintaining own journal makes sense.
+Based on these benchmarks if losing up to 8ms of data (if app crashes) or more in case of power outage is okay, unsafe journal makes sense.
+
+Rocksdb performance seems to drop as the concurrent writers increase.
