@@ -1,0 +1,3 @@
+%{
+  "rocker": {:git, "https://github.com/xenomorphtech/rocker", "2d7b886acfad1784742d80a79739cc9eb01fcca6", []},
+}
