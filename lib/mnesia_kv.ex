@@ -121,22 +121,24 @@ defmodule MnesiaKV do
     else
       ts_s = :os.system_time(1)
 
-      case :ets.lookup(table, key) do
-        [] ->
+      try do
+        #update existing
+        old_map = :ets.lookup_element(table, key, 2)
+        map = merge_nested(old_map, diff_map)
+        if map == old_map do
+        else
+          Map.put(map, :_tsu, ts_s)
+          :ok = :rocker.put(db, key, :erlang.term_to_binary(map))
+          :ets.insert(table, {key, map})
+          proc_subscriptions_merge(table, key, map, diff_map)
+        end
+      catch
+        :error, :badarg ->
+          #insert new
           map = Map.merge(diff_map, %{uuid: key, _tsc: ts_s, _tsu: ts_s})
           :ok = :rocker.put(db, key, :erlang.term_to_binary(map))
           :ets.insert(table, {key, map})
           proc_subscriptions_new(table, key, diff_map)
-
-        [{_, old_map}] ->
-          map = merge_nested(old_map, diff_map)
-          if map == old_map do
-          else
-            Map.put(map, :_tsu, ts_s)
-            :ok = :rocker.put(db, key, :erlang.term_to_binary(map))
-            :ets.insert(table, {key, map})
-            proc_subscriptions_merge(table, key, map, diff_map)
-          end
       end
     end
   end
@@ -173,9 +175,10 @@ defmodule MnesiaKV do
       make_table(table)
       get(table, key)
     else
-      case :ets.lookup(table, key) do
-        [] -> nil
-        [{_, map}] -> map
+      try do
+        :ets.lookup_element(table, key, 2)
+      catch
+        :error, :badarg -> nil
       end
     end
   end
