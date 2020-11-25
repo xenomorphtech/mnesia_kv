@@ -112,7 +112,7 @@ defmodule MnesiaKV do
     db
   end
 
-  def merge(table, key, diff_map) do
+  def merge(table, key, diff_map, subscription \\ true) do
     db = :persistent_term.get({:mnesia_kv_db, table}, nil)
 
     if is_nil(db) do
@@ -130,7 +130,7 @@ defmodule MnesiaKV do
           Map.put(map, :_tsu, ts_s)
           :ok = :rocker.put(db, key, :erlang.term_to_binary(map))
           :ets.insert(table, {key, map})
-          proc_subscriptions_merge(table, key, map, diff_map)
+          subscription && proc_subscriptions_merge(table, key, map, diff_map)
         end
       catch
         :error, :badarg ->
@@ -138,7 +138,7 @@ defmodule MnesiaKV do
           map = Map.merge(diff_map, %{uuid: key, _tsc: ts_s, _tsu: ts_s})
           :ok = :rocker.put(db, key, :erlang.term_to_binary(map))
           :ets.insert(table, {key, map})
-          proc_subscriptions_new(table, key, diff_map)
+          subscription && proc_subscriptions_new(table, key, diff_map)
       end
     end
   end
@@ -198,6 +198,15 @@ defmodule MnesiaKV do
       match_object(table, match_spec)
     else
       :ets.match_object(table, match_spec) |> Enum.map(&elem(&1, 1))
+    end
+  end
+
+  def keys(table) do
+    if :ets.whereis(table) == :undefined do
+      make_table(table)
+      get(table)
+    else
+      :ets.select(table, [{{:"$1", :_}, [], [:"$1"]}])
     end
   end
 end
