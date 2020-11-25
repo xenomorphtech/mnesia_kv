@@ -117,4 +117,20 @@ MnesiaKV.merge(Account, new_acc_uuid, %{age: 2})
 
 ```
 
+### Benchmarks
 
+```
+4 core i5-7500 CPU @ 3.40GHz
+ext4, consumer SSD
+
+MnesiaKV.Bench.write_to_file_unsafe(4)
+1.6m write tps
+
+MnesiaKV.Bench.mnesia(4)
+266k write tps
+
+MnesiaKV.Bench.rocksdb(4)
+120k write tps
+```
+
+Based on these benchmarks if losing up to 8ms of data (if app crashes) or more in case of power outage is okay, maintaining own journal makes sense.
