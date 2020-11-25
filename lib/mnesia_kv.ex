@@ -45,13 +45,24 @@ defmodule MnesiaKV do
     end
   end
 
-  defp proc_subscriptions_merge(table, key, diff_map) do
-    :pg.get_local_members(PGMnesiaKVByKey, {table, key})
-    |> Enum.each(&send(&1, {:mnesia_kv_event, :merge, table, key, diff_map}))
+  defp proc_subscriptions_new(table, key, map) do
+    :pg.get_local_members(PGMnesiaKVSubscribeByKey, {table, key})
+    |> Enum.each(&send(&1, {:mnesia_kv_event, :new, table, key, map}))
+    :pg.get_local_members(PGMnesiaKVSubscribe, table)
+    |> Enum.each(&send(&1, {:mnesia_kv_event, :new, table, key, map}))
+  end
+
+  defp proc_subscriptions_merge(table, key, map, diff_map) do
+    :pg.get_local_members(PGMnesiaKVSubscribeByKey, {table, key})
+    |> Enum.each(&send(&1, {:mnesia_kv_event, :merge, table, key, map, diff_map}))
+    :pg.get_local_members(PGMnesiaKVSubscribe, table)
+    |> Enum.each(&send(&1, {:mnesia_kv_event, :merge, table, key, map, diff_map}))
   end
 
   defp proc_subscriptions_delete(table, key) do
-    :pg.get_local_members(PGMnesiaKVByKey, {table, key})
+    :pg.get_local_members(PGMnesiaKVSubscribeByKey, {table, key})
+    |> Enum.each(&send(&1, {:mnesia_kv_event, :delete, table, key}))
+    :pg.get_local_members(PGMnesiaKVSubscribe, table)
     |> Enum.each(&send(&1, {:mnesia_kv_event, :delete, table, key}))
   end
 
@@ -59,14 +70,24 @@ defmodule MnesiaKV do
     MnesiaKV.Uuid.generate(random_bytes)
   end
 
+  def subscribe(table, pid \\ nil) do
+    pid = if pid, do: pid, else: self()
+    :pg.join(PGMnesiaKVSubscribe, table, pid)
+  end
+
   def subscribe_by_key(table, key, pid \\ nil) do
     pid = if pid, do: pid, else: self()
-    :pg.join(PGMnesiaKVByKey, {table, key}, pid)
+    :pg.join(PGMnesiaKVSubscribeByKey, {table, key}, pid)
+  end
+
+  def unsubscribe(table, pid \\ nil) do
+    pid = if pid, do: pid, else: self()
+    :pg.leave(PGMnesiaKVSubscribe, table, pid)
   end
 
   def unsubscribe_by_key(table, key, pid \\ nil) do
     pid = if pid, do: pid, else: self()
-    :pg.leave(PGMnesiaKVByKey, {table, key}, pid)
+    :pg.leave(PGMnesiaKVSubscribeByKey, {table, key}, pid)
   end
 
   def make_table(table) do
@@ -105,7 +126,7 @@ defmodule MnesiaKV do
           map = Map.merge(diff_map, %{uuid: key, _tsc: ts_s, _tsu: ts_s})
           :ok = :rocker.put(db, key, :erlang.term_to_binary(map))
           :ets.insert(table, {key, map})
-          proc_subscriptions_merge(table, key, diff_map)
+          proc_subscriptions_new(table, key, diff_map)
 
         [{_, old_map}] ->
           map = merge_nested(old_map, diff_map)
@@ -114,7 +135,7 @@ defmodule MnesiaKV do
             Map.put(map, :_tsu, ts_s)
             :ok = :rocker.put(db, key, :erlang.term_to_binary(map))
             :ets.insert(table, {key, map})
-            proc_subscriptions_merge(table, key, diff_map)
+            proc_subscriptions_merge(table, key, map, diff_map)
           end
       end
     end

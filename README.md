@@ -33,7 +33,6 @@ https://bugs.erlang.org/browse/ERL-831
 
 https://bugs.erlang.org/browse/ERL-1389
 
-alot of it.
 
 This is because Mnesia in :disc_copies mode does not use a WAL but instead periodically based on `dump_log_time_threshold` (total time elapsed)
 or `dump_log_write_threshold` (total writes that occured) decides when to flush changes from ram to disk.
@@ -98,12 +97,24 @@ MnesiaKV.subscribe_by_key(Account, new_acc_uuid)
 
 MnesiaKV.merge(Account, new_acc_uuid, %{age: 1})
 
-{:mnesia_kv_event, :merge, Account, ^new_acc_uuid, %{age: 1}} =
+{:mnesia_kv_event, :merge, Account, ^new_acc_uuid, _full_map, _diff = %{age: 1}} =
     receive do msg -> msg after 1 -> nil end
 
 #Delete data
 MnesiaKV.delete(Account, new_acc_uuid)
 
 {:mnesia_kv_event, :delete, Account, ^new_acc_uuid} =
-receive do msg -> msg after 1 -> nil end
+    receive do msg -> msg after 1 -> nil end
+
+
+#Subscribe to all changes
+MnesiaKV.subscribe(Account)
+
+MnesiaKV.merge(Account, new_acc_uuid, %{age: 2})
+
+{:mnesia_kv_event, :new, Account, ^new_acc_uuid, _full_map = %{age: 2}} =
+    receive do msg -> msg after 1 -> nil end
+
 ```
+
+
