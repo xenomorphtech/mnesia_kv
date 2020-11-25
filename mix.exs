@@ -1,4 +1,4 @@
-defmodule Ex.MixProject do
+defmodule MnesiaKV.MixProject do
   use Mix.Project
 
   def project do
