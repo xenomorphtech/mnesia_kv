@@ -165,4 +165,9 @@ defmodule MnesiaKV do
   def size(table) do
     :ets.info(table, :size)
   end
+
+  def clear(table) do
+    get(table)
+    |> Enum.each(& delete(table, &1.uuid))
+  end
 end
