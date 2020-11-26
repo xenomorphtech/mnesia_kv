@@ -1,9 +1,7 @@
 defmodule MnesiaKV do
-  def load() do
-    loaded_tables = Path.wildcard("mnesia_kv/*")
-    |> Enum.map(&Path.basename/1)
-    |> Enum.map(fn table ->
-      table = String.to_atom(table)
+  def load(tables) do
+    loaded_tables = tables
+    |> Enum.map(fn {table, _args} ->
       db = :persistent_term.get({:mnesia_kv_db, table}, nil)
       if is_nil(db) do
         IO.puts "MnesiaKV loading #{table}"
@@ -113,109 +111,68 @@ defmodule MnesiaKV do
   end
 
   def merge(table, key, diff_map, subscription \\ true) do
-    db = :persistent_term.get({:mnesia_kv_db, table}, nil)
+    db = :persistent_term.get({:mnesia_kv_db, table})
+    ts_s = :os.system_time(1)
 
-    if is_nil(db) do
-      make_table(table)
-      merge(table, key, diff_map)
-    else
-      ts_s = :os.system_time(1)
-
-      try do
-        #update existing
-        old_map = :ets.lookup_element(table, key, 2)
-        map = merge_nested(old_map, diff_map)
-        if map == old_map do
-        else
-          Map.put(map, :_tsu, ts_s)
-          :ok = :rocker.put(db, key, :erlang.term_to_binary(map))
-          :ets.insert(table, {key, map})
-          subscription && proc_subscriptions_merge(table, key, map, diff_map)
-        end
-      catch
-        :error, :badarg ->
-          #insert new
-          map = Map.merge(diff_map, %{uuid: key, _tsc: ts_s, _tsu: ts_s})
-          :ok = :rocker.put(db, key, :erlang.term_to_binary(map))
-          :ets.insert(table, {key, map})
-          subscription && proc_subscriptions_new(table, key, diff_map)
+    try do
+      #update existing
+      old_map = :ets.lookup_element(table, key, 2)
+      map = merge_nested(old_map, diff_map)
+      if map == old_map do
+      else
+        Map.put(map, :_tsu, ts_s)
+        :ok = :rocker.put(db, key, :erlang.term_to_binary(map))
+        :ets.insert(table, {key, map})
+        subscription && proc_subscriptions_merge(table, key, map, diff_map)
       end
+    catch
+      :error, :badarg ->
+        #insert new
+        map = Map.merge(diff_map, %{uuid: key, _tsc: ts_s, _tsu: ts_s})
+        :ok = :rocker.put(db, key, :erlang.term_to_binary(map))
+        :ets.insert(table, {key, map})
+        subscription && proc_subscriptions_new(table, key, diff_map)
     end
   end
 
   def delete(table, key) do
-    db = :persistent_term.get({:mnesia_kv_db, table}, nil)
+    db = :persistent_term.get({:mnesia_kv_db, table})
 
-    if is_nil(db) do
-      make_table(table)
-      delete(table, key)
-    else
-      :ok = :rocker.delete(db, key)
-      :ets.delete(table, key)
-      proc_subscriptions_delete(table, key)
-    end
+    :ok = :rocker.delete(db, key)
+    :ets.delete(table, key)
+    proc_subscriptions_delete(table, key)
   end
 
   def random(table) do
-    if :ets.whereis(table) == :undefined do
-      make_table(table)
-      random(table)
-    else
-      size = :ets.info(table, :size)
+    size = :ets.info(table, :size)
 
-      if size > 0 do
-        [{_, data}] = :ets.slot(table, :rand.uniform(size) - 1)
-        data
-      end
+    if size > 0 do
+      [{_, data}] = :ets.slot(table, :rand.uniform(size) - 1)
+      data
     end
   end
 
   def get(table, key) do
-    if :ets.whereis(table) == :undefined do
-      make_table(table)
-      get(table, key)
-    else
-      try do
-        :ets.lookup_element(table, key, 2)
-      catch
-        :error, :badarg -> nil
-      end
+    try do
+      :ets.lookup_element(table, key, 2)
+    catch
+      :error, :badarg -> nil
     end
   end
 
   def get(table) do
-    if :ets.whereis(table) == :undefined do
-      make_table(table)
-      get(table)
-    else
-      :ets.select(table, [{{:_, :"$1"}, [], [:"$1"]}])
-    end
+    :ets.select(table, [{{:_, :"$1"}, [], [:"$1"]}])
   end
 
   def match_object(table, match_spec) do
-    if :ets.whereis(table) == :undefined do
-      make_table(table)
-      match_object(table, match_spec)
-    else
-      :ets.match_object(table, match_spec) |> Enum.map(&elem(&1, 1))
-    end
+    :ets.match_object(table, match_spec) |> Enum.map(&elem(&1, 1))
   end
 
   def keys(table) do
-    if :ets.whereis(table) == :undefined do
-      make_table(table)
-      get(table)
-    else
-      :ets.select(table, [{{:"$1", :_}, [], [:"$1"]}])
-    end
+    :ets.select(table, [{{:"$1", :_}, [], [:"$1"]}])
   end
 
   def size(table) do
-    if :ets.whereis(table) == :undefined do
-      make_table(table)
-      random(table)
-    else
-      :ets.info(table, :size)
-    end
+    :ets.info(table, :size)
   end
 end

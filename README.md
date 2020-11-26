@@ -87,14 +87,16 @@ MnesiaKV stores each rocksdb under `mnesia_kv/` in the current working dir.
 
 Each subfolder containing the rocksdb database is the name of the ets table.
 
-Tables are automagically created if they dont exist.
+Tables are not automagically created if they dont exist. This is because if the process that created
+the ets table dies, the table gets lost.
+
 
 ```elixir
 #Make sure MnesiaKV app is started
 {:ok, _} = :application.ensure_all_started(:mnesia_kv)
 
-#At the start of your app run
-MnesiaKV.load()
+#At the start of your app init tables
+MnesiaKV.load(%{Account=> %{}})
 
 #Write data
 new_acc_uuid = MnesiaKV.uuid()
