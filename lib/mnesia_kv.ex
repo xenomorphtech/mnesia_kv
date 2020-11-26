@@ -105,7 +105,7 @@ defmodule MnesiaKV do
       db
     catch
       :error, {:badmatch, {:err, "IO error: While lock file: " <> _}} ->
-        IO.inspect(:already_opened_rocks)
+        IO.inspect({:already_opened_rocks, __STACKTRACE__})
         :error
     end
 
