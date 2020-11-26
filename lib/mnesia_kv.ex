@@ -209,4 +209,13 @@ defmodule MnesiaKV do
       :ets.select(table, [{{:"$1", :_}, [], [:"$1"]}])
     end
   end
+
+  def size(table) do
+    if :ets.whereis(table) == :undefined do
+      make_table(table)
+      random(table)
+    else
+      :ets.info(table, :size)
+    end
+  end
 end
