@@ -1,22 +1,12 @@
 defmodule MnesiaKV do
   def load(tables) do
-    loaded_tables = tables
-    |> Enum.map(fn {table, _args} ->
-      db = :persistent_term.get({:mnesia_kv_db, table}, nil)
-      if is_nil(db) do
-        IO.puts "MnesiaKV loading #{table}"
-        db = make_table(table)
-        load_table(table, db)
-        table
-      end
-    end)
-    |> Enum.filter(& &1)
+    loaded_tables = GenServer.call(MnesiaKV.Gen, {:load, tables})
     if loaded_tables != [] do
       IO.puts "MnesiaKV loaded #{inspect loaded_tables}!"
     end
   end
 
-  defp load_table(table, db) do
+  def load_table(table, db) do
     {:ok, iter} = :rocker.iterator(db, {:start})
     load_table_1(table, iter)
   end
