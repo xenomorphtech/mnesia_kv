@@ -1,6 +1,6 @@
 defmodule MnesiaKV do
   def load(tables) do
-    loaded_tables = GenServer.call(MnesiaKV.Gen, {:load, tables})
+    loaded_tables = GenServer.call(MnesiaKV.Gen, {:load, tables}, 180_000)
     if loaded_tables != [] do
       IO.puts "MnesiaKV loaded #{inspect loaded_tables}!"
     end
@@ -108,6 +108,31 @@ defmodule MnesiaKV do
       #update existing
       old_map = :ets.lookup_element(table, key, 2)
       map = merge_nested(old_map, diff_map)
+      if map == old_map do
+      else
+        Map.put(map, :_tsu, ts_s)
+        :ok = :rocker.put(db, key, :erlang.term_to_binary(map))
+        :ets.insert(table, {key, map})
+        subscription && proc_subscriptions_merge(table, key, map, diff_map)
+      end
+    catch
+      :error, :badarg ->
+        #insert new
+        map = Map.merge(diff_map, %{uuid: key, _tsc: ts_s, _tsu: ts_s})
+        :ok = :rocker.put(db, key, :erlang.term_to_binary(map))
+        :ets.insert(table, {key, map})
+        subscription && proc_subscriptions_new(table, key, diff_map)
+    end
+  end
+
+  def merge_override(table, key, diff_map, subscription \\ true) do
+    db = :persistent_term.get({:mnesia_kv_db, table})
+    ts_s = :os.system_time(1)
+
+    try do
+      #update existing
+      old_map = :ets.lookup_element(table, key, 2)
+      map = Map.merge(old_map, diff_map)
       if map == old_map do
       else
         Map.put(map, :_tsu, ts_s)
