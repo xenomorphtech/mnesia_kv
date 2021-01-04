@@ -14,12 +14,12 @@ defmodule MnesiaKV.Gen do
   def handle_call({:load, tables}, _from, state) do
 
     loaded_tables = tables
-    |> Enum.map(fn {table, _args} ->
+    |> Enum.map(fn {table, args} ->
       db = :persistent_term.get({:mnesia_kv_db, table}, nil)
       if is_nil(db) do
         IO.puts "MnesiaKV loading #{table}"
-        db = MnesiaKV.make_table(table)
-        MnesiaKV.load_table(table, db)
+        db = MnesiaKV.make_table(table, args)
+        MnesiaKV.load_table(table, args, db)
         table
       end
     end)

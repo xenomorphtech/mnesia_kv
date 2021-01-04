@@ -6,19 +6,25 @@ defmodule MnesiaKV do
     end
   end
 
-  def load_table(table, db) do
+  def load_table(table, args, db) do
     {:ok, iter} = :rocker.iterator(db, {:start})
-    load_table_1(table, iter)
+    load_table_1(table, args, iter)
   end
 
-  defp load_table_1(table, iter) do
+  defp load_table_1(table, args, iter) do
     case :rocker.next(iter) do
       :ok -> :ok
 
       {:ok, key, value} ->
+        key = case args[:key_type] do
+          :elixir_term ->
+            {key,[]} = Code.eval_string(key)
+            key
+          _ -> key
+        end
         map = :erlang.binary_to_term(value)
         :ets.insert(table, {key, map})
-        load_table_1(table, iter)
+        load_table_1(table, args, iter)
     end
   end
 
@@ -78,7 +84,7 @@ defmodule MnesiaKV do
     :pg.leave(PGMnesiaKVSubscribeByKey, {table, key}, pid)
   end
 
-  def make_table(table) do
+  def make_table(table, args) do
     try do
       :ets.new(table, [:ordered_set, :named_table, :public, {:write_concurrency, true}, {:read_concurrency, true}])
     catch
@@ -88,8 +94,8 @@ defmodule MnesiaKV do
     db = try do
       :ok = File.mkdir_p!("mnesia_kv")
       {:ok, db} = :rocker.open_default("mnesia_kv/#{table}")
-      load_table(table, db)
-      :persistent_term.put({:mnesia_kv_db, table}, db)
+      load_table(table, args, db)
+      :persistent_term.put({:mnesia_kv_db, table}, %{db: db, args: args})
       db
     catch
       :error, {:badmatch, {:err, "IO error: While lock file: " <> _}} ->
@@ -101,8 +107,12 @@ defmodule MnesiaKV do
   end
 
   def merge(table, key, diff_map, subscription \\ true) do
-    db = :persistent_term.get({:mnesia_kv_db, table})
     ts_s = :os.system_time(1)
+    %{db: db, args: args} = :persistent_term.get({:mnesia_kv_db, table})
+    key_rocks = case args[:key_type] do
+      :elixir_term -> "#{inspect key}"
+      _ -> key
+    end
 
     try do
       #update existing
@@ -111,7 +121,7 @@ defmodule MnesiaKV do
       if map == old_map do
       else
         Map.put(map, :_tsu, ts_s)
-        :ok = :rocker.put(db, key, :erlang.term_to_binary(map))
+        :ok = :rocker.put(db, key_rocks, :erlang.term_to_binary(map))
         :ets.insert(table, {key, map})
         subscription && proc_subscriptions_merge(table, key, map, diff_map)
       end
@@ -151,9 +161,13 @@ defmodule MnesiaKV do
   end
 
   def delete(table, key) do
-    db = :persistent_term.get({:mnesia_kv_db, table})
+    %{db: db, args: args} = :persistent_term.get({:mnesia_kv_db, table})
+    key_rocks = case args[:key_type] do
+      :elixir_term -> "#{inspect key}"
+      _ -> key
+    end
 
-    :ok = :rocker.delete(db, key)
+    :ok = :rocker.delete(db, key_rocks)
     :ets.delete(table, key)
     proc_subscriptions_delete(table, key)
   end
