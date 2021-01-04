@@ -129,15 +129,19 @@ defmodule MnesiaKV do
       :error, :badarg ->
         #insert new
         map = Map.merge(diff_map, %{uuid: key, _tsc: ts_s, _tsu: ts_s})
-        :ok = :rocker.put(db, key, :erlang.term_to_binary(map))
+        :ok = :rocker.put(db, key_rocks, :erlang.term_to_binary(map))
         :ets.insert(table, {key, map})
         subscription && proc_subscriptions_new(table, key, diff_map)
     end
   end
 
   def merge_override(table, key, diff_map, subscription \\ true) do
-    db = :persistent_term.get({:mnesia_kv_db, table})
     ts_s = :os.system_time(1)
+    %{db: db, args: args} = :persistent_term.get({:mnesia_kv_db, table})
+    key_rocks = case args[:key_type] do
+      :elixir_term -> "#{inspect key}"
+      _ -> key
+    end
 
     try do
       #update existing
@@ -146,7 +150,7 @@ defmodule MnesiaKV do
       if map == old_map do
       else
         Map.put(map, :_tsu, ts_s)
-        :ok = :rocker.put(db, key, :erlang.term_to_binary(map))
+        :ok = :rocker.put(db, key_rocks, :erlang.term_to_binary(map))
         :ets.insert(table, {key, map})
         subscription && proc_subscriptions_merge(table, key, map, diff_map)
       end
@@ -154,7 +158,7 @@ defmodule MnesiaKV do
       :error, :badarg ->
         #insert new
         map = Map.merge(diff_map, %{uuid: key, _tsc: ts_s, _tsu: ts_s})
-        :ok = :rocker.put(db, key, :erlang.term_to_binary(map))
+        :ok = :rocker.put(db, key_rocks, :erlang.term_to_binary(map))
         :ets.insert(table, {key, map})
         subscription && proc_subscriptions_new(table, key, diff_map)
     end
@@ -206,7 +210,7 @@ defmodule MnesiaKV do
   end
 
   def clear(table) do
-    get(table)
-    |> Enum.each(& delete(table, &1.uuid))
+    :ets.select(table, [{{:"$1", :_}, [], [:"$1"]}])
+    |> Enum.each(& delete(table, &1))
   end
 end
