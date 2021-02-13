@@ -164,6 +164,30 @@ defmodule MnesiaKV do
     end
   end
 
+  def update(table, key, diff_map, subscription \\ true) do
+    ts_s = :os.system_time(1)
+    %{db: db, args: args} = :persistent_term.get({:mnesia_kv_db, table})
+    key_rocks = case args[:key_type] do
+      :elixir_term -> "#{inspect key}"
+      _ -> key
+    end
+
+    try do
+      #update existing
+      old_map = :ets.lookup_element(table, key, 2)
+      map = merge_nested(old_map, diff_map)
+      if map == old_map do
+      else
+        Map.put(map, :_tsu, ts_s)
+        :ok = :rocker.put(db, key_rocks, :erlang.term_to_binary(map))
+        :ets.insert(table, {key, map})
+        subscription && proc_subscriptions_merge(table, key, map, diff_map)
+      end
+    catch
+      :error, :badarg -> nil
+    end
+  end
+
   def delete(table, key) do
     %{db: db, args: args} = :persistent_term.get({:mnesia_kv_db, table})
     key_rocks = case args[:key_type] do
