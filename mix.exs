@@ -22,7 +22,8 @@ defmodule MnesiaKV.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:rocker, git: "https://github.com/xenomorphtech/rocker"}
+      {:rocker, git: "https://github.com/xenomorphtech/rocker"},
+      {:rocksdb, git: "https://gitlab.com/barrel-db/erlang-rocksdb"}
     ]
   end
 end

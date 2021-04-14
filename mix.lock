@@ -1,3 +1,4 @@
 %{
   "rocker": {:git, "https://github.com/xenomorphtech/rocker", "2d7b886acfad1784742d80a79739cc9eb01fcca6", []},
+  "rocksdb": {:git, "https://gitlab.com/barrel-db/erlang-rocksdb", "8177d4548dd2b3d5fbf38c721973fe1f7482517c", []},
 }
