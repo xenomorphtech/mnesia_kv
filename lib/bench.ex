@@ -65,27 +65,33 @@ defmodule MnesiaKV.Bench do
   end
 
   def rocksdb(threads \\ 4) do
-    make_ets()
-    {:ok, db} = :rocker.open_default("mnesia_kv/Elixir.Bench")
-    Enum.each(1..threads, fn(_idx)->
-      :erlang.spawn_opt(fn()->
-        {took, _} = :timer.tc(fn()->
-          Enum.each(1..100000, fn(_key) ->
-            key = :rand.uniform(10000)
-            map = case :ets.lookup(Bench, key) do
-              [] -> %{field: :rand.uniform(1000000)}
-              [{_,old}] -> Map.merge(old, %{field: :rand.uniform(100000)})
-            end
+    :ok = File.mkdir_p!("mnesia_kv")
+    MnesiaKV.Bench.make_ets()
+    {:ok, db} = :rocksdb.open('mnesia_kv/Elixir.Bench', [{:create_if_missing, true},{:unordered_write, true}])
+    tasks = Enum.map(1..threads, fn(_)->
+        Task.async(fn()->
+          {took, _} = :timer.tc(fn()->
+            Enum.each(1..100000, fn(_key) ->
+              key = :rand.uniform(10000)
+              map = case :ets.lookup(Bench, key) do
+                [] -> %{field: :rand.uniform(1000000)}
+                [{_,old}] -> Map.merge(old, %{field: :rand.uniform(100000)})
+              end
 
-            :ok = :rocker.put(db, "#{key}", :erlang.term_to_binary(map))
-            #System.halt()
-            :ets.insert(Bench, {key, map})
+              :ok = :rocksdb.put(db, "#{key}", :erlang.term_to_binary(map), [])
+              #System.halt()
+              :ets.insert(Bench, {key, map})
+            end)
           end)
+          took / 1000
         end)
-        took = took / 1000
-        IO.inspect took
-      end, [{:min_heap_size, 512}])
     end)
+    result = Task.yield_many(tasks, 20_000)
+    |> Enum.map(fn({_, {:ok, result}})-> result end)
+    |> Enum.map(& (100000 * (1000/&1)))
+    |> Enum.sum()
+    |> trunc()
+    :ok = :rocksdb.close(db)
+    result
   end
-
 end

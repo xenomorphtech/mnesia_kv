@@ -7,14 +7,13 @@ defmodule MnesiaKV do
   end
 
   def load_table(table, args, db) do
-    {:ok, iter} = :rocker.iterator(db, {:start})
+    {:ok, iter} = :rocksdb.iterator(db, [])
     load_table_1(table, args, iter)
   end
 
-  defp load_table_1(table, args, iter) do
-    case :rocker.next(iter) do
-      :ok -> :ok
-
+  defp load_table_1(table, args, iter, itr_type \\ :first) do
+    case :rocksdb.iterator_move(iter, itr_type) do
+      {:error, :invalid_iterator} -> :rocksdb.iterator_close(iter)
       {:ok, key, value} ->
         key = case args[:key_type] do
           :elixir_term ->
@@ -24,7 +23,7 @@ defmodule MnesiaKV do
         end
         map = :erlang.binary_to_term(value)
         :ets.insert(table, {key, map})
-        load_table_1(table, args, iter)
+        load_table_1(table, args, iter, :next)
     end
   end
 
@@ -93,7 +92,7 @@ defmodule MnesiaKV do
 
     db = try do
       :ok = File.mkdir_p!("mnesia_kv")
-      {:ok, db} = :rocker.open_default("mnesia_kv/#{table}")
+      {:ok, db} = :rocksdb.open('mnesia_kv/#{table}', [{:create_if_missing, true},{:unordered_write, true}])
       load_table(table, args, db)
       :persistent_term.put({:mnesia_kv_db, table}, %{db: db, args: args})
       db
@@ -121,7 +120,7 @@ defmodule MnesiaKV do
       if map == old_map do
       else
         Map.put(map, :_tsu, ts_s)
-        :ok = :rocker.put(db, key_rocks, :erlang.term_to_binary(map))
+        :ok = :rocksdb.put(db, key_rocks, :erlang.term_to_binary(map), [])
         :ets.insert(table, {key, map})
         subscription && proc_subscriptions_merge(table, key, map, diff_map)
       end
@@ -129,7 +128,7 @@ defmodule MnesiaKV do
       :error, :badarg ->
         #insert new
         map = Map.merge(diff_map, %{uuid: key, _tsc: ts_s, _tsu: ts_s})
-        :ok = :rocker.put(db, key_rocks, :erlang.term_to_binary(map))
+        :ok = :rocksdb.put(db, key_rocks, :erlang.term_to_binary(map), [])
         :ets.insert(table, {key, map})
         subscription && proc_subscriptions_new(table, key, diff_map)
     end
@@ -150,7 +149,7 @@ defmodule MnesiaKV do
       if map == old_map do
       else
         Map.put(map, :_tsu, ts_s)
-        :ok = :rocker.put(db, key_rocks, :erlang.term_to_binary(map))
+        :ok = :rocksdb.put(db, key_rocks, :erlang.term_to_binary(map), [])
         :ets.insert(table, {key, map})
         subscription && proc_subscriptions_merge(table, key, map, diff_map)
       end
@@ -158,7 +157,7 @@ defmodule MnesiaKV do
       :error, :badarg ->
         #insert new
         map = Map.merge(diff_map, %{uuid: key, _tsc: ts_s, _tsu: ts_s})
-        :ok = :rocker.put(db, key_rocks, :erlang.term_to_binary(map))
+        :ok = :rocksdb.put(db, key_rocks, :erlang.term_to_binary(map), [])
         :ets.insert(table, {key, map})
         subscription && proc_subscriptions_new(table, key, diff_map)
     end
@@ -179,7 +178,7 @@ defmodule MnesiaKV do
       if map == old_map do
       else
         Map.put(map, :_tsu, ts_s)
-        :ok = :rocker.put(db, key_rocks, :erlang.term_to_binary(map))
+        :ok = :rocksdb.put(db, key_rocks, :erlang.term_to_binary(map), [])
         :ets.insert(table, {key, map})
         subscription && proc_subscriptions_merge(table, key, map, diff_map)
       end
@@ -195,7 +194,7 @@ defmodule MnesiaKV do
       _ -> key
     end
 
-    :ok = :rocker.delete(db, key_rocks)
+    :ok = :rocksdb.delete(db, key_rocks, [])
     :ets.delete(table, key)
     proc_subscriptions_delete(table, key)
   end
@@ -219,6 +218,29 @@ defmodule MnesiaKV do
 
   def get(table) do
     :ets.select(table, [{{:_, :"$1"}, [], [:"$1"]}])
+  end
+
+  def get_spec(table, key, spec, result_format) do
+    case :ets.select(table, [{{key, spec}, [], [result_format]}]) do
+      [result] -> result
+      [] -> nil
+    end
+  end
+
+  def get_spec!(table, key, spec, result_format) do
+    case :ets.select(table, [{{key, spec}, [], [result_format]}]) do
+      [result] -> result
+      [] -> throw {:spec_not_found, {table, key, spec, result_format}}
+    end
+  end
+
+  def exists(table, key) do
+    try do
+      :ets.lookup_element(table, key, 1)
+      true
+    catch
+      :error, :badarg -> false
+    end
   end
 
   def match_object(table, match_spec) do

@@ -8,16 +8,8 @@ Deepmerged key value database (/w diff subscriptions) ontop of ETS with RocksDB 
 ### Deps
 
 ```
-For rocker:
-rust, libclang
-
-On ubuntu:
-
-apt install libclang-dev
-
-sed -e 's|/root/.cargo/bin:||g' -i /etc/environment
-sed -e 's|PATH="\(.*\)"|PATH="/root/.cargo/bin:\1"|g' -i /etc/environment
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs/ | sh -s -- -y
+For erlang-rocksdb:
+cmake
 ```
 
 ### Philosopy
@@ -54,15 +46,13 @@ or `dump_log_write_threshold` (total writes that occured) decides when to flush 
 
 ### Parts
 
-:rocker https://github.com/Vonmo/rocker for rust rocksdb via rustler
+:erlang-rocksdb https://gitlab.com/barrel-db/erlang-rocksdb for rocksdb via erlang
 
 :pg https://erlang.org/doc/man/pg.html new OTP 23 PG module for subscriptions
 
 ### Todo
 
 [ ] More subscription filters
-
-[ ] :rocker warnings with new rustler
 
 [ ] transactions
 
@@ -109,6 +99,9 @@ MnesiaKV.merge(Account, new_acc_uuid, %{age: 376})
 #Read data
 %{age: 376} = MnesiaKV.get(Account, new_acc_uuid)
 
+#Read large data (if term >1kb)
+age = MnesiaKV.get_spec(Account, new_acc_uuid, %{age: :"$1"}, :"$1") || 42
+
 #Subscribe to changes
 MnesiaKV.subscribe_by_key(Account, new_acc_uuid)
 
@@ -136,6 +129,9 @@ MnesiaKV.merge(Account, new_acc_uuid, %{age: 2})
 
 ### Benchmarks
 
+Write to 1 db
+
+Benchmarks on rocker (REMOVED since April 2021) (using rust-rocksdb non-master outdated 5.x.x rocksdb)
 ```
 4 core i5-7500 CPU @ 3.40GHz
 ext4, consumer SSD
@@ -150,7 +146,7 @@ MnesiaKV.Bench.rocksdb(4)
 120k write tps
 
 
-8/16 core i9-9900K CPU @ 3.60GHz
+Intel(R) Core(TM) i9-9900K CPU @ 3.60GHz
 XFS, PM981 NVME
 
 MnesiaKV.Bench.write_to_file_unsafe(16)
@@ -179,6 +175,41 @@ MnesiaKV.Bench.rocksdb(1)
 330k write tps
 ```
 
-Based on these benchmarks if losing up to 8ms of data (if app crashes) or more in case of power outage is okay, unsafe journal makes sense.
+Benchmarks on erlang-rocksdb (rocksdb 6.13.3), April 2021
+```
+AMD EPYC 7502P 32-Core Processor
+BTRFS, PM981 NVME
 
-Rocksdb performance seems to drop as the concurrent writers increase.
+102854 1
+185513 4
+247566 8
+374245 16
+387341 32
+378695 64
+
+#unordered_writes
+101003 1
+273978 8
+356849 16
+479530 32
+476486 64
+
+
+Intel(R) Core(TM) i9-9900K CPU @ 3.60GHz
+BTRFS, PM981 NVME
+
+178514 1
+336631 4
+409433 8
+564763 16
+553180 32
+
+#unordered_writes
+202838 1
+450190 4
+491850 8
+695923 16
+743349 32
+```
+
+Based on these benchmarks if losing up to 8ms of data (if app crashes) or more in case of power outage is okay, unsafe journal makes sense.
