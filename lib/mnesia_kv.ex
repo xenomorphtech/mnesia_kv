@@ -47,7 +47,8 @@ defmodule MnesiaKV do
 
   defp index_delete(table, key, args) do
     if args[:index] do
-      :ets.select_delete(:"#{table}_index", [{{:"$1", :_}, [{:==, {:element, 1, :"$1"}, key}], [true]}])
+      index_tuple = :erlang.list_to_tuple([key] ++ Enum.map(args.index, & &1 && :_))
+      :ets.match_delete(:"#{table}_index", {index_tuple, :_})
     end
   end
 
