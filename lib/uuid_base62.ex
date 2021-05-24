@@ -1,9 +1,9 @@
 defmodule MnesiaKV.Uuid do
   @base62_alphabet String.split(
-    "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
-    ~r{},
-    trim: true
-  )
+                     "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+                     ~r{},
+                     trim: true
+                   )
 
   defp int_to_base62(0), do: ""
 

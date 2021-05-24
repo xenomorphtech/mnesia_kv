@@ -11,19 +11,20 @@ defmodule MnesiaKV.Gen do
   end
 
   @impl true
-  def handle_call({:load, tables}, _from, state) do
+  def handle_call({:load, tables, options}, _from, state) do
+    loaded_tables =
+      tables
+      |> Enum.map(fn {table, args} ->
+        db = :persistent_term.get({:mnesia_kv_db, table}, nil)
 
-    loaded_tables = tables
-    |> Enum.map(fn {table, args} ->
-      db = :persistent_term.get({:mnesia_kv_db, table}, nil)
-      if is_nil(db) do
-        IO.puts "MnesiaKV loading #{table}"
-        db = MnesiaKV.make_table(table, args)
-        MnesiaKV.load_table(table, args, db)
-        table
-      end
-    end)
-    |> Enum.filter(& &1)
+        if is_nil(db) do
+          IO.puts("MnesiaKV loading #{table} #{inspect(options)}")
+          path = options[:path] || "mnesia_kv/"
+          db = MnesiaKV.make_table(table, args, path)
+          table
+        end
+      end)
+      |> Enum.filter(& &1)
 
     {:reply, loaded_tables, state}
   end

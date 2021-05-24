@@ -14,8 +14,17 @@ defmodule MnesiaKV.App do
 
     {:ok, _} = DynamicSupervisor.start_child(MnesiaKV.Supervisor, %{id: MnesiaKV.Gen, start: {MnesiaKV.Gen, :start_link, []}})
 
-    {:ok, _} = DynamicSupervisor.start_child(MnesiaKV.Supervisor, %{id: PGMnesiaKVSubscribe, start: {:pg, :start_link, [PGMnesiaKVSubscribe]}})
-    {:ok, _} = DynamicSupervisor.start_child(MnesiaKV.Supervisor, %{id: PGMnesiaKVSubscribeByKey, start: {:pg, :start_link, [PGMnesiaKVSubscribeByKey]}})
+    {:ok, _} =
+      DynamicSupervisor.start_child(MnesiaKV.Supervisor, %{
+        id: PGMnesiaKVSubscribe,
+        start: {:pg, :start_link, [PGMnesiaKVSubscribe]}
+      })
+
+    {:ok, _} =
+      DynamicSupervisor.start_child(MnesiaKV.Supervisor, %{
+        id: PGMnesiaKVSubscribeByKey,
+        start: {:pg, :start_link, [PGMnesiaKVSubscribeByKey]}
+      })
 
     supervisor
   end
