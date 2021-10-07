@@ -234,6 +234,19 @@ defmodule MnesiaKV do
     end
   end
 
+  def increment_counter(table, key, amount) do
+    %{db: db, args: args} = :persistent_term.get({:mnesia_kv_db, table})
+
+    key_rocks =
+      case args[:key_type] do
+        :elixir_term -> "#{inspect(key)}"
+        _ -> key
+      end
+
+    new_counter = :ets.update_counter(table, key, {2, amount}, {key, 0})
+    :ok = :rocksdb.put(db, key_rocks, :erlang.term_to_binary(new_counter), [])
+  end
+
   def delete(table, key) do
     %{db: db, args: args} = :persistent_term.get({:mnesia_kv_db, table})
 
