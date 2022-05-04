@@ -3,7 +3,9 @@ defmodule MnesiaKV do
     loaded_tables = GenServer.call(MnesiaKV.Gen, {:load, tables, options}, 180_000)
 
     if loaded_tables != [] do
-      IO.puts("MnesiaKV loaded #{inspect(loaded_tables)} #{inspect(options)}!")
+      if options[:log] do
+        IO.puts("MnesiaKV loaded #{inspect(loaded_tables)} #{inspect(options)}!")
+      end
     end
   end
 
@@ -65,10 +67,10 @@ defmodule MnesiaKV do
 
   defp proc_subscriptions_new(table, key, map) do
     :pg.get_local_members(PGMnesiaKVSubscribeByKey, {table, key})
-    |> Enum.each(&send(&1, {:mnesia_kv_event, :new, table, key, map}))
+    |> Enum.each(&send(&1, {:mnesia_kv_event, :new, table, key, map, map}))
 
     :pg.get_local_members(PGMnesiaKVSubscribe, table)
-    |> Enum.each(&send(&1, {:mnesia_kv_event, :new, table, key, map}))
+    |> Enum.each(&send(&1, {:mnesia_kv_event, :new, table, key, map, map}))
   end
 
   defp proc_subscriptions_merge(table, key, map, diff_map) do
@@ -168,7 +170,7 @@ defmodule MnesiaKV do
         :ok = :rocksdb.put(db, key_rocks, :erlang.term_to_binary(map), [])
         :ets.insert(table, {key, map})
         index_add(table, key, map, args)
-        subscription && proc_subscriptions_new(table, key, diff_map)
+        subscription && proc_subscriptions_new(table, key, map)
     end
   end
 
@@ -202,7 +204,7 @@ defmodule MnesiaKV do
         :ok = :rocksdb.put(db, key_rocks, :erlang.term_to_binary(map), [])
         :ets.insert(table, {key, map})
         index_add(table, key, map, args)
-        subscription && proc_subscriptions_new(table, key, diff_map)
+        subscription && proc_subscriptions_new(table, key, map)
     end
   end
 

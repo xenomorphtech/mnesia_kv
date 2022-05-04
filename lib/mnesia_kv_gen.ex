@@ -18,7 +18,9 @@ defmodule MnesiaKV.Gen do
         db = :persistent_term.get({:mnesia_kv_db, table}, nil)
 
         if is_nil(db) do
-          IO.puts("MnesiaKV loading #{table} #{inspect(options)}")
+          if options[:log] do
+            IO.puts("MnesiaKV loading #{table} #{inspect(options)}")
+          end
           path = options[:path] || "mnesia_kv/"
           db = MnesiaKV.make_table(table, args, path)
           table

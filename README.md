@@ -86,7 +86,7 @@ the ets table dies, the table gets lost.
 {:ok, _} = :application.ensure_all_started(:mnesia_kv)
 
 #At the start of your app init tables
-MnesiaKV.load(%{Account=> %{}})
+MnesiaKV.load(%{Account=> %{}}, %{path: "./mnesia_kv/", log: true})
 
 #Write data
 new_acc_uuid = MnesiaKV.uuid()
@@ -107,7 +107,7 @@ MnesiaKV.subscribe_by_key(Account, new_acc_uuid)
 
 MnesiaKV.merge(Account, new_acc_uuid, %{age: 1})
 
-{:mnesia_kv_event, :merge, Account, ^new_acc_uuid, _full_map, _diff = %{age: 1}} =
+{:mnesia_kv_event, :merge, Account, ^new_acc_uuid, _full_map = %{age: 1, _tsu: timestamp_updated}, _diff = %{age: 1}} =
     receive do msg -> msg after 1 -> nil end
 
 #Delete data
@@ -122,7 +122,7 @@ MnesiaKV.subscribe(Account)
 
 MnesiaKV.merge(Account, new_acc_uuid, %{age: 2})
 
-{:mnesia_kv_event, :new, Account, ^new_acc_uuid, _full_map = %{age: 2}} =
+{:mnesia_kv_event, :new, Account, ^new_acc_uuid, _full_map = %{age: 2, _tsc: timestamp_created}, _diff = %{age: 2}} =
     receive do msg -> msg after 1 -> nil end
 
 ```
