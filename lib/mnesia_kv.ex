@@ -200,7 +200,11 @@ defmodule MnesiaKV do
     catch
       :error, :badarg ->
         # insert new
-        map = Map.merge(diff_map, %{uuid: key, _tsc: ts_s, _tsu: ts_s})
+        map = if diff_map[:_tsc] do
+          Map.merge(diff_map, %{uuid: key, _tsu: ts_s})
+        else
+          Map.merge(diff_map, %{uuid: key, _tsc: ts_s, _tsu: ts_s})
+        end
         :ok = :rocksdb.put(db, key_rocks, :erlang.term_to_binary(map), [])
         :ets.insert(table, {key, map})
         index_add(table, key, map, args)
