@@ -113,7 +113,7 @@ MnesiaKV.merge(Account, new_acc_uuid, %{age: 1})
 #Delete data
 MnesiaKV.delete(Account, new_acc_uuid)
 
-{:mnesia_kv_event, :delete, Account, ^new_acc_uuid} =
+{:mnesia_kv_event, :delete, Account, ^new_acc_uuid, full_map} =
     receive do msg -> msg after 1 -> nil end
 
 

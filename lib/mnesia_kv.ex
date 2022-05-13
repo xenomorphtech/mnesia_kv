@@ -81,12 +81,12 @@ defmodule MnesiaKV do
     |> Enum.each(&send(&1, {:mnesia_kv_event, :merge, table, key, map, diff_map}))
   end
 
-  defp proc_subscriptions_delete(table, key) do
+  defp proc_subscriptions_delete(table, key, map) do
     :pg.get_local_members(PGMnesiaKVSubscribeByKey, {table, key})
-    |> Enum.each(&send(&1, {:mnesia_kv_event, :delete, table, key}))
+    |> Enum.each(&send(&1, {:mnesia_kv_event, :delete, table, key, map}))
 
     :pg.get_local_members(PGMnesiaKVSubscribe, table)
-    |> Enum.each(&send(&1, {:mnesia_kv_event, :delete, table, key}))
+    |> Enum.each(&send(&1, {:mnesia_kv_event, :delete, table, key, map}))
   end
 
   def uuid(random_bytes \\ 3) do
@@ -253,7 +253,7 @@ defmodule MnesiaKV do
     :ok = :rocksdb.put(db, key_rocks, :erlang.term_to_binary(new_counter), [])
   end
 
-  def delete(table, key) do
+  def delete(table, key, subscription \\ true) do
     %{db: db, args: args} = :persistent_term.get({:mnesia_kv_db, table})
 
     key_rocks =
@@ -261,11 +261,11 @@ defmodule MnesiaKV do
         :elixir_term -> "#{inspect(key)}"
         _ -> key
       end
-
+    map = subscription && get(table, key)
     :ok = :rocksdb.delete(db, key_rocks, [])
     :ets.delete(table, key)
     index_delete(table, key, args)
-    proc_subscriptions_delete(table, key)
+    subscription && proc_subscriptions_delete(table, key, map)
   end
 
   def random(table) do
