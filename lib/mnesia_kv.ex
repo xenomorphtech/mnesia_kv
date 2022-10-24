@@ -156,12 +156,14 @@ defmodule MnesiaKV do
       map = merge_nested(old_map, diff_map)
 
       if map == old_map do
+        map
       else
         map = Map.put(map, :_tsu, ts_s)
         :ok = :rocksdb.put(db, key_rocks, :erlang.term_to_binary(map), [])
         :ets.insert(table, {key, map})
         index_add(table, key, map, args)
         subscription && proc_subscriptions_merge(table, key, map, diff_map)
+        map
       end
     catch
       :error, :badarg ->
@@ -171,6 +173,7 @@ defmodule MnesiaKV do
         :ets.insert(table, {key, map})
         index_add(table, key, map, args)
         subscription && proc_subscriptions_new(table, key, map)
+        map
     end
   end
 
@@ -190,12 +193,14 @@ defmodule MnesiaKV do
       map = Map.merge(old_map, diff_map)
 
       if map == old_map do
+        map
       else
         map = Map.put(map, :_tsu, ts_s)
         :ok = :rocksdb.put(db, key_rocks, :erlang.term_to_binary(map), [])
         :ets.insert(table, {key, map})
         index_add(table, key, map, args)
         subscription && proc_subscriptions_merge(table, key, map, diff_map)
+        map
       end
     catch
       :error, :badarg ->
@@ -209,6 +214,7 @@ defmodule MnesiaKV do
         :ets.insert(table, {key, map})
         index_add(table, key, map, args)
         subscription && proc_subscriptions_new(table, key, map)
+        map
     end
   end
 
@@ -228,12 +234,14 @@ defmodule MnesiaKV do
       map = merge_nested(old_map, diff_map)
 
       if map == old_map do
+        map
       else
         map = Map.put(map, :_tsu, ts_s)
         :ok = :rocksdb.put(db, key_rocks, :erlang.term_to_binary(map), [])
         :ets.insert(table, {key, map})
         index_add(table, key, map, args)
         subscription && proc_subscriptions_merge(table, key, map, diff_map)
+        map
       end
     catch
       :error, :badarg -> nil
@@ -251,6 +259,7 @@ defmodule MnesiaKV do
 
     new_counter = :ets.update_counter(table, key, {2, amount}, {key, 0})
     :ok = :rocksdb.put(db, key_rocks, :erlang.term_to_binary(new_counter), [])
+    new_counter
   end
 
   def delete(table, key, subscription \\ true) do
@@ -266,6 +275,7 @@ defmodule MnesiaKV do
     :ets.delete(table, key)
     index_delete(table, key, args)
     subscription && proc_subscriptions_delete(table, key, map)
+    map
   end
 
   def random(table) do
