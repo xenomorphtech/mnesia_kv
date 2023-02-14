@@ -89,8 +89,11 @@ defmodule MnesiaKV do
     |> Enum.each(&send(&1, {:mnesia_kv_event, :delete, table, key, map}))
   end
 
-  def uuid(random_bytes \\ 3) do
-    MnesiaKV.Uuid.generate(random_bytes)
+  def uuid(random_bytes \\ 4) do
+    rng_bytes = :crypto.strong_rand_bytes(random_bytes)
+    time_6 = :binary.encode_unsigned(:os.system_time(1000))
+    rng = time_6 <> rng_bytes
+    Base.hex_encode32(rng, padding: false, case: :lower)
   end
 
   def subscribe(table, pid \\ nil) do
