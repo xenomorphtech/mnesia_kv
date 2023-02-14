@@ -251,7 +251,7 @@ defmodule MnesiaKV do
     end
   end
 
-  def increment_counter(table, key, amount) do
+  def increment_counter(table, key, amount, subscription \\ false) do
     %{db: db, args: args} = :persistent_term.get({:mnesia_kv_db, table})
 
     key_rocks =
@@ -262,6 +262,7 @@ defmodule MnesiaKV do
 
     new_counter = :ets.update_counter(table, key, {2, amount}, {key, 0})
     :ok = :rocksdb.put(db, key_rocks, :erlang.term_to_binary(new_counter), [])
+    subscription && proc_subscriptions_merge(table, key, new_counter, new_counter)
     new_counter
   end
 
