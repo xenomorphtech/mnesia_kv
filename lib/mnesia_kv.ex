@@ -350,6 +350,26 @@ defmodule MnesiaKV do
     :ets.select(:"#{table}_index", match_spec)
   end
 
+  def all_object_index(table, index_key) do
+    %{args: args} = :persistent_term.get({:mnesia_kv_db, table})
+    if !args[:index], do: throw(%{error: :no_index})
+
+    index_args = [:key] ++ args.index
+
+    index_tuple =
+      :erlang.list_to_tuple(
+        Enum.map(index_args, fn index ->
+          case index == index_key do
+            true -> :"$1"
+            false -> :_
+          end
+        end)
+      )
+
+    match_spec = [{{index_tuple, :_}, [], [:"$1"]}]
+    :ets.select(:"#{table}_index", match_spec)
+  end
+
   def keys(table) do
     :ets.select(table, [{{:"$1", :_}, [], [:"$1"]}])
   end
