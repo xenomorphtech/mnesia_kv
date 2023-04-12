@@ -144,7 +144,7 @@ defmodule MnesiaKV do
   end
 
   def merge(table, key, diff_map, subscription \\ true) do
-    ts_s = :os.system_time(1)
+    ts_m = :os.system_time(1000)
     %{db: db, args: args} = :persistent_term.get({:mnesia_kv_db, table})
 
     key_rocks =
@@ -161,7 +161,7 @@ defmodule MnesiaKV do
       if map == old_map do
         map
       else
-        map = Map.put(map, :_tsu, ts_s)
+        map = Map.put(map, :_tsu, ts_m)
         :ok = :rocksdb.put(db, key_rocks, :erlang.term_to_binary(map), [])
         :ets.insert(table, {key, map})
         index_add(table, key, map, args)
@@ -171,7 +171,7 @@ defmodule MnesiaKV do
     catch
       :error, :badarg ->
         # insert new
-        map = Map.merge(diff_map, %{uuid: key, _tsc: ts_s, _tsu: ts_s})
+        map = Map.merge(diff_map, %{uuid: key, _tsc: ts_m, _tsu: ts_m})
         :ok = :rocksdb.put(db, key_rocks, :erlang.term_to_binary(map), [])
         :ets.insert(table, {key, map})
         index_add(table, key, map, args)
@@ -181,7 +181,7 @@ defmodule MnesiaKV do
   end
 
   def merge_override(table, key, diff_map, subscription \\ true) do
-    ts_s = :os.system_time(1)
+    ts_m = :os.system_time(1000)
     %{db: db, args: args} = :persistent_term.get({:mnesia_kv_db, table})
 
     key_rocks =
@@ -198,7 +198,7 @@ defmodule MnesiaKV do
       if map == old_map do
         map
       else
-        map = Map.put(map, :_tsu, ts_s)
+        map = Map.put(map, :_tsu, ts_m)
         :ok = :rocksdb.put(db, key_rocks, :erlang.term_to_binary(map), [])
         :ets.insert(table, {key, map})
         index_add(table, key, map, args)
@@ -209,9 +209,9 @@ defmodule MnesiaKV do
       :error, :badarg ->
         # insert new
         map = if diff_map[:_tsc] do
-          Map.merge(diff_map, %{uuid: key, _tsu: ts_s})
+          Map.merge(diff_map, %{uuid: key, _tsu: ts_m})
         else
-          Map.merge(diff_map, %{uuid: key, _tsc: ts_s, _tsu: ts_s})
+          Map.merge(diff_map, %{uuid: key, _tsc: ts_m, _tsu: ts_m})
         end
         :ok = :rocksdb.put(db, key_rocks, :erlang.term_to_binary(map), [])
         :ets.insert(table, {key, map})
@@ -222,7 +222,7 @@ defmodule MnesiaKV do
   end
 
   def update(table, key, diff_map, subscription \\ true) do
-    ts_s = :os.system_time(1)
+    ts_m = :os.system_time(1000)
     %{db: db, args: args} = :persistent_term.get({:mnesia_kv_db, table})
 
     key_rocks =
@@ -239,7 +239,7 @@ defmodule MnesiaKV do
       if map == old_map do
         map
       else
-        map = Map.put(map, :_tsu, ts_s)
+        map = Map.put(map, :_tsu, ts_m)
         :ok = :rocksdb.put(db, key_rocks, :erlang.term_to_binary(map), [])
         :ets.insert(table, {key, map})
         index_add(table, key, map, args)
