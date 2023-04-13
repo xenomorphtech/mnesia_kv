@@ -65,27 +65,33 @@ defmodule MnesiaKV do
     end
   end
 
-  defp proc_subscriptions_new(table, key, map) do
+  defp proc_subscriptions_new(table, key, map, ignore_pids \\ []) do
     :pg.get_local_members(PGMnesiaKVSubscribeByKey, {table, key})
+    |> Kernel.--(ignore_pids)
     |> Enum.each(&send(&1, {:mnesia_kv_event, :new, table, key, map, map}))
 
     :pg.get_local_members(PGMnesiaKVSubscribe, table)
+    |> Kernel.--(ignore_pids)
     |> Enum.each(&send(&1, {:mnesia_kv_event, :new, table, key, map, map}))
   end
 
-  defp proc_subscriptions_merge(table, key, map, diff_map) do
+  defp proc_subscriptions_merge(table, key, map, diff_map, ignore_pids \\ []) do
     :pg.get_local_members(PGMnesiaKVSubscribeByKey, {table, key})
+    |> Kernel.--(ignore_pids)
     |> Enum.each(&send(&1, {:mnesia_kv_event, :merge, table, key, map, diff_map}))
 
     :pg.get_local_members(PGMnesiaKVSubscribe, table)
+    |> Kernel.--(ignore_pids)
     |> Enum.each(&send(&1, {:mnesia_kv_event, :merge, table, key, map, diff_map}))
   end
 
-  defp proc_subscriptions_delete(table, key, map) do
+  defp proc_subscriptions_delete(table, key, map, ignore_pids \\ []) do
     :pg.get_local_members(PGMnesiaKVSubscribeByKey, {table, key})
+    |> Kernel.--(ignore_pids)
     |> Enum.each(&send(&1, {:mnesia_kv_event, :delete, table, key, map}))
 
     :pg.get_local_members(PGMnesiaKVSubscribe, table)
+    |> Kernel.--(ignore_pids)
     |> Enum.each(&send(&1, {:mnesia_kv_event, :delete, table, key, map}))
   end
 
@@ -143,7 +149,7 @@ defmodule MnesiaKV do
     db
   end
 
-  def merge(table, key, diff_map, subscription \\ true) do
+  def merge(table, key, diff_map, subscription \\ []) do
     ts_m = :os.system_time(1000)
     %{db: db, args: args} = :persistent_term.get({:mnesia_kv_db, table})
 
@@ -165,7 +171,7 @@ defmodule MnesiaKV do
         :ok = :rocksdb.put(db, key_rocks, :erlang.term_to_binary(map), [])
         :ets.insert(table, {key, map})
         index_add(table, key, map, args)
-        subscription && proc_subscriptions_merge(table, key, map, diff_map)
+        subscription && proc_subscriptions_merge(table, key, map, diff_map, subscription)
         map
       end
     catch
@@ -175,12 +181,12 @@ defmodule MnesiaKV do
         :ok = :rocksdb.put(db, key_rocks, :erlang.term_to_binary(map), [])
         :ets.insert(table, {key, map})
         index_add(table, key, map, args)
-        subscription && proc_subscriptions_new(table, key, map)
+        subscription && proc_subscriptions_new(table, key, map, subscription)
         map
     end
   end
 
-  def merge_override(table, key, diff_map, subscription \\ true) do
+  def merge_override(table, key, diff_map, subscription \\ []) do
     ts_m = :os.system_time(1000)
     %{db: db, args: args} = :persistent_term.get({:mnesia_kv_db, table})
 
@@ -202,7 +208,7 @@ defmodule MnesiaKV do
         :ok = :rocksdb.put(db, key_rocks, :erlang.term_to_binary(map), [])
         :ets.insert(table, {key, map})
         index_add(table, key, map, args)
-        subscription && proc_subscriptions_merge(table, key, map, diff_map)
+        subscription && proc_subscriptions_merge(table, key, map, diff_map, subscription)
         map
       end
     catch
@@ -216,12 +222,12 @@ defmodule MnesiaKV do
         :ok = :rocksdb.put(db, key_rocks, :erlang.term_to_binary(map), [])
         :ets.insert(table, {key, map})
         index_add(table, key, map, args)
-        subscription && proc_subscriptions_new(table, key, map)
+        subscription && proc_subscriptions_new(table, key, map, subscription)
         map
     end
   end
 
-  def update(table, key, diff_map, subscription \\ true) do
+  def update(table, key, diff_map, subscription \\ []) do
     ts_m = :os.system_time(1000)
     %{db: db, args: args} = :persistent_term.get({:mnesia_kv_db, table})
 
@@ -243,7 +249,7 @@ defmodule MnesiaKV do
         :ok = :rocksdb.put(db, key_rocks, :erlang.term_to_binary(map), [])
         :ets.insert(table, {key, map})
         index_add(table, key, map, args)
-        subscription && proc_subscriptions_merge(table, key, map, diff_map)
+        subscription && proc_subscriptions_merge(table, key, map, diff_map, subscription)
         map
       end
     catch
@@ -251,7 +257,7 @@ defmodule MnesiaKV do
     end
   end
 
-  def increment_counter(table, key, amount, subscription \\ false) do
+  def increment_counter(table, key, amount, subscription \\ []) do
     %{db: db, args: args} = :persistent_term.get({:mnesia_kv_db, table})
 
     key_rocks =
@@ -262,11 +268,11 @@ defmodule MnesiaKV do
 
     new_counter = :ets.update_counter(table, key, {2, amount}, {key, 0})
     :ok = :rocksdb.put(db, key_rocks, :erlang.term_to_binary(new_counter), [])
-    subscription && proc_subscriptions_merge(table, key, new_counter, new_counter)
+    subscription && proc_subscriptions_merge(table, key, new_counter, new_counter, subscription)
     new_counter
   end
 
-  def delete(table, key, subscription \\ true) do
+  def delete(table, key, subscription \\ []) do
     %{db: db, args: args} = :persistent_term.get({:mnesia_kv_db, table})
 
     key_rocks =
@@ -278,7 +284,7 @@ defmodule MnesiaKV do
     :ok = :rocksdb.delete(db, key_rocks, [])
     :ets.delete(table, key)
     index_delete(table, key, args)
-    subscription && proc_subscriptions_delete(table, key, map)
+    subscription && proc_subscriptions_delete(table, key, map, subscription)
     map
   end
 
