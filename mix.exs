@@ -22,7 +22,7 @@ defmodule MnesiaKV.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:rocksdb, git: "git@gitlab.com:barrel-db/erlang-rocksdb.git"}
+      {:rocksdb, git: "https://gitlab.com/barrel-db/erlang-rocksdb.git"}
     ]
   end
 end
