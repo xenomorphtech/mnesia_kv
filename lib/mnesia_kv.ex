@@ -122,7 +122,7 @@ defmodule MnesiaKV do
     :pg.leave(PGMnesiaKVSubscribeByKey, {table, key}, pid)
   end
 
-  def make_table(table, args, path) do
+  def make_table(table, args, path, extra_options \\ []) do
     try do
       :ets.new(table, [:ordered_set, :named_table, :public, {:write_concurrency, true}, {:read_concurrency, true}])
 
@@ -139,10 +139,10 @@ defmodule MnesiaKV do
         {:ok, db} = :rocksdb.open('#{path}/#{table}', [
           {:create_if_missing, true},
           {:unordered_write, true},
-          {:keep_log_file_num, 1}
-        ])
+          #{:keep_log_file_num, 1}
+        ] ++ extra_options)
         load_table(table, args, db)
-        :persistent_term.put({:mnesia_kv_db, table}, %{db: db, args: args, path: path})
+        :persistent_term.put({:mnesia_kv_db, table}, %{db: db, args: args, path: path, extra_options: extra_options})
         db
       catch
         :error, {:badmatch, {:err, "IO error: While lock file: " <> _}} ->
