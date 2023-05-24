@@ -22,7 +22,8 @@ defmodule MnesiaKV.Gen do
             IO.puts("MnesiaKV loading #{table} #{inspect(options)}")
           end
           path = options[:path] || "mnesia_kv/"
-          db = MnesiaKV.make_table(table, args, path)
+          extra_options = options[:extra_options] || []
+          db = MnesiaKV.make_table(table, args, path, extra_options)
           table
         end
       end)
