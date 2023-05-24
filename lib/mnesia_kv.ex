@@ -136,9 +136,14 @@ defmodule MnesiaKV do
     db =
       try do
         :ok = File.mkdir_p!(path)
-        {:ok, db} = :rocksdb.open('#{path}/#{table}', [{:create_if_missing, true}, {:unordered_write, true}])
+        {:ok, db} = :rocksdb.open('#{path}/#{table}', [
+          {:create_if_missing, true},
+          {:unordered_write, true},
+          {:keep_log_file_num, 1}
+        ])
+         load_table(table, 
         load_table(table, args, db)
-        :persistent_term.put({:mnesia_kv_db, table}, %{db: db, args: args})
+        :persistent_term.put({:mnesia_kv_db, table}, %{db: db, args: args, path: path})
         db
       catch
         :error, {:badmatch, {:err, "IO error: While lock file: " <> _}} ->
@@ -387,5 +392,27 @@ defmodule MnesiaKV do
   def clear(table) do
     :ets.select(table, [{{:"$1", :_}, [], [:"$1"]}])
     |> Enum.each(&delete(table, &1))
+  end
+  
+  def backup_reflink(table, outpath) do
+    ts_m = :os.system_time(1000)
+    %{db: db, args: args} = :persistent_term.get({:mnesia_kv_db, table})
+    :ok = :rocksdb.flush(db, [:wait, true])
+
+    File.mkdir_p!(outpath)
+    {"", 0} = System.shell("cp -r --reflink=always #{args.path}/#{table} #{outpath}", [{:stderr_to_stdout, true}])
+    File.rm!(outpath<>"/LOCK")
+  end
+
+  def restore_reflink(table, refpath) do
+    ts_m = :os.system_time(1000)
+    %{db: db, args: args} = :persistent_term.get({:mnesia_kv_db, table})
+    #:ok = :rocksdb.close(db)
+    clear(table)
+
+    File.rm_rf!(args.path<>"/*")
+    {"", 0} = System.shell("cp -r --reflink=never #{refpath}/#{table} #{args.path}", [{:stderr_to_stdout, true}])
+    :persistent_term.erase({:mnesia_kv_db, table})
+    load(%{table=> args}, %{path: args.path})
   end
 end
