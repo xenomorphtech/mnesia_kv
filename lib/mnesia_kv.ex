@@ -141,7 +141,6 @@ defmodule MnesiaKV do
           {:unordered_write, true},
           {:keep_log_file_num, 1}
         ])
-         load_table(table, 
         load_table(table, args, db)
         :persistent_term.put({:mnesia_kv_db, table}, %{db: db, args: args, path: path})
         db
