@@ -395,23 +395,23 @@ defmodule MnesiaKV do
   
   def backup_reflink(table, outpath) do
     ts_m = :os.system_time(1000)
-    %{db: db, args: args} = :persistent_term.get({:mnesia_kv_db, table})
+    %{db: db, args: args, path: path} = :persistent_term.get({:mnesia_kv_db, table})
     :ok = :rocksdb.flush(db, [:wait, true])
 
     File.mkdir_p!(outpath)
-    {"", 0} = System.shell("cp -r --reflink=always #{args.path}/#{table} #{outpath}", [{:stderr_to_stdout, true}])
+    {"", 0} = System.shell("cp -r --reflink=always #{path}/#{table} #{outpath}", [{:stderr_to_stdout, true}])
     File.rm!(outpath<>"/LOCK")
   end
 
   def restore_reflink(table, refpath) do
     ts_m = :os.system_time(1000)
-    %{db: db, args: args} = :persistent_term.get({:mnesia_kv_db, table})
+    %{db: db, args: args, path: path} = :persistent_term.get({:mnesia_kv_db, table})
     #:ok = :rocksdb.close(db)
     clear(table)
 
-    File.rm_rf!(args.path<>"/*")
-    {"", 0} = System.shell("cp -r --reflink=never #{refpath}/#{table} #{args.path}", [{:stderr_to_stdout, true}])
+    File.rm_rf!(path<>"/*")
+    {"", 0} = System.shell("cp -r --reflink=never #{refpath}/#{table} #{path}", [{:stderr_to_stdout, true}])
     :persistent_term.erase({:mnesia_kv_db, table})
-    load(%{table=> args}, %{path: args.path})
+    load(%{table=> args}, %{path: path})
   end
 end
