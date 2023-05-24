@@ -400,7 +400,7 @@ defmodule MnesiaKV do
 
     File.mkdir_p!(outpath)
     {"", 0} = System.shell("cp -r --reflink=always #{path}/#{table} #{outpath}", [{:stderr_to_stdout, true}])
-    File.rm!(outpath<>"/LOCK")
+    File.rm(outpath<>"/LOCK")
   end
 
   def restore_reflink(table, refpath) do
