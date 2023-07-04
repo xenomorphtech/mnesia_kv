@@ -44,18 +44,18 @@ defmodule MnesiaKV do
     end)
   end
 
-  defp nested_fetch(map, [index|tail]) do
-    result = try do Map.fetch(map, index) catch _,_ -> :error end
-    case result do
-      :error -> :_
-      {:ok, value} -> nested_fetch(value, tail)
-    end
-  end
   defp nested_fetch(map, [index]) do
     result = try do Map.fetch(map, index) catch _,_ -> :error end
     case result do
       :error -> :_
       {:ok, value} -> value
+    end
+  end
+  defp nested_fetch(map, [index|tail]) do
+    result = try do Map.fetch(map, index) catch _,_ -> :error end
+    case result do
+      :error -> :_
+      {:ok, value} -> nested_fetch(value, tail)
     end
   end
 
