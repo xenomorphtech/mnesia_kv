@@ -168,7 +168,7 @@ defmodule MnesiaKV do
           {:unordered_write, true},
           #{:keep_log_file_num, 1}
         ] ++ extra_options)
-        args = if !Enum.find(args[:index]||[], & is_list(&1)) do args else Map.put(args, :index_complex, true)
+        args = if !Enum.find(args[:index]||[], & is_list(&1)) do args else Map.put(args, :index_complex, true) end
         load_table(table, args, db)
         :persistent_term.put({:mnesia_kv_db, table}, %{db: db, args: args, path: path, extra_options: extra_options})
         db
