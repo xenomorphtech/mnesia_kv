@@ -37,12 +37,39 @@ defmodule MnesiaKV do
     end
   end
 
+  defp resolve_nested_index(map, indexes, acc \\ %{}) do
+    Enum.reduce(indexes, acc, fn(idx, acc)->
+      value = try do get_in(map, List.wrap(idx)) catch _,_ -> nil end
+      Map.put(acc, idx, value)
+    end)
+  end
+
+  defp nested_fetch(map, [index|tail]) do
+    result = try do Map.fetch(map, index) catch _,_ -> :error end
+    case result do
+      :error -> :_
+      {:ok, value} -> nested_fetch(value, tail)
+    end
+  end
+  defp nested_fetch(map, [index]) do
+    result = try do Map.fetch(map, index) catch _,_ -> :error end
+    case result do
+      :error -> :_
+      {:ok, value} -> value
+    end
+  end
+
   defp index_add(table, key, map, args) do
-    index_map = if args[:index], do: Map.take(map, args.index)
+    index = args[:index]
+    index_map = cond do
+      !index -> nil
+      args[:index_complex] -> resolve_nested_index(map, index)
+      true -> Map.take(map, index)
+    end
 
     if index_map do
       index_delete(table, key, args)
-      index_tuple = :erlang.list_to_tuple([key] ++ Enum.map(args.index, &index_map[&1]))
+      index_tuple = :erlang.list_to_tuple([key] ++ Enum.map(index, &index_map[&1]))
       :ets.insert(:"#{table}_index", {index_tuple, key})
     end
   end
@@ -141,6 +168,7 @@ defmodule MnesiaKV do
           {:unordered_write, true},
           #{:keep_log_file_num, 1}
         ] ++ extra_options)
+        args = if !Enum.find(args[:index]||[], & is_list(&1)) do args else Map.put(args, :index_complex, true)
         load_table(table, args, db)
         :persistent_term.put({:mnesia_kv_db, table}, %{db: db, args: args, path: path, extra_options: extra_options})
         db
@@ -349,10 +377,7 @@ defmodule MnesiaKV do
     index_tuple =
       :erlang.list_to_tuple(
         Enum.map(index_args, fn index ->
-          case Map.fetch(map, index) do
-            :error -> :_
-            {:ok, value} -> value
-          end
+          nested_fetch(map, List.wrap(index))
         end)
       )
 
