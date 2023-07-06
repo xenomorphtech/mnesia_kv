@@ -1,3 +1,0 @@
-%{
-  "rocksdb": {:git, "https://gitlab.com/vans/erlang-rocksdb", "aadeeadb4e87892162d31933f339ce99d85a0615", []},
-}
